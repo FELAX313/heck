@@ -1,0 +1,792 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Horror Mine - Escape or Die</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            width: 100%;
+            height: 100vh;
+            font-family: Arial, sans-serif;
+            background: #000;
+            overflow: hidden;
+        }
+        #canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+        }
+        #ui {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            color: #fff;
+            font-size: 18px;
+            font-weight: bold;
+            text-shadow: 0 0 10px rgba(255, 255, 255, 0.5);
+        }
+        .crosshair {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 30px;
+            height: 30px;
+            border: 2px solid rgba(255, 200, 0, 0.7);
+            border-radius: 50%;
+        }
+        .crosshair::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 2px;
+            height: 10px;
+            background: rgba(255, 200, 0, 0.7);
+        }
+        .crosshair::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 10px;
+            height: 2px;
+            background: rgba(255, 200, 0, 0.7);
+        }
+        #endScreen {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.95);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+        }
+        #endScreen.show {
+            display: flex;
+        }
+        #endScreen h1 {
+            color: #00ff00;
+            font-size: 80px;
+            text-shadow: 0 0 30px rgba(0, 255, 0, 0.8);
+            margin-bottom: 30px;
+            animation: pulse 1s infinite;
+        }
+        #endScreen p {
+            color: #fff;
+            font-size: 24px;
+            margin-bottom: 40px;
+        }
+        #endScreen button {
+            padding: 15px 40px;
+            font-size: 20px;
+            background: #00ff00;
+            color: #000;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: 0.3s;
+        }
+        #endScreen button:hover {
+            background: #00cc00;
+            transform: scale(1.1);
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+        }
+        #deathScreen {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: #000;
+            z-index: 1001;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+        }
+        #deathScreen.show {
+            display: flex;
+        }
+        #jumpscare {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(45deg, #ff0000, #000000);
+            z-index: 1002;
+            justify-content: center;
+            align-items: center;
+            font-size: 200px;
+        }
+        #jumpscare.active {
+            display: flex;
+            animation: jumpscare 0.5s;
+        }
+        @keyframes jumpscare {
+            0% { opacity: 0; transform: scale(0.5); }
+            50% { opacity: 1; transform: scale(1.2); }
+            100% { opacity: 1; transform: scale(1); }
+        }
+        #deathScreen h1 {
+            color: #ff0000;
+            font-size: 120px;
+            text-shadow: 0 0 50px rgba(255, 0, 0, 1);
+            margin-bottom: 30px;
+            animation: deathPulse 0.3s infinite;
+        }
+        @keyframes deathPulse {
+            0%, 100% { opacity: 1; text-shadow: 0 0 50px rgba(255, 0, 0, 1); }
+            50% { opacity: 0.5; text-shadow: 0 0 100px rgba(255, 0, 0, 1); }
+        }
+        #deathScreen p {
+            color: #ff6b6b;
+            font-size: 28px;
+            margin-bottom: 40px;
+        }
+        #deathScreen button {
+            padding: 15px 40px;
+            font-size: 20px;
+            background: #ff0000;
+            color: #fff;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: 0.3s;
+        }
+        #deathScreen button:hover {
+            background: #cc0000;
+            transform: scale(1.1);
+        }
+        #instructions {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            color: rgba(255, 255, 255, 0.6);
+            font-size: 14px;
+            text-align: right;
+        }
+        #titleScreen {
+            display: flex;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(135deg, #1a0000 0%, #2d0000 50%, #1a0000 100%);
+            z-index: 2000;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+        }
+        #titleScreen h1 {
+            font-size: 150px;
+            color: #8b0000;
+            text-shadow: 0 0 50px rgba(255, 0, 0, 0.8), 0 0 100px rgba(139, 0, 0, 0.6);
+            margin-bottom: 80px;
+            font-weight: bold;
+            letter-spacing: 5px;
+            animation: titleGlow 2s infinite;
+        }
+        @keyframes titleGlow {
+            0%, 100% { text-shadow: 0 0 50px rgba(255, 0, 0, 0.8), 0 0 100px rgba(139, 0, 0, 0.6); }
+            50% { text-shadow: 0 0 100px rgba(255, 0, 0, 1), 0 0 150px rgba(139, 0, 0, 1); }
+        }
+        .menu-buttons {
+            display: flex;
+            flex-direction: column;
+            gap: 30px;
+            align-items: center;
+        }
+        .menu-btn {
+            padding: 20px 60px;
+            font-size: 28px;
+            background: linear-gradient(135deg, #660000, #330000);
+            color: #ff6b6b;
+            border: 3px solid #8b0000;
+            border-radius: 15px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: 0.3s;
+            text-shadow: 0 0 10px rgba(255, 0, 0, 0.8);
+            box-shadow: 0 0 20px rgba(255, 0, 0, 0.5), inset 0 0 20px rgba(139, 0, 0, 0.3);
+        }
+        .menu-btn:hover {
+            background: linear-gradient(135deg, #990000, #660000);
+            transform: scale(1.1);
+            box-shadow: 0 0 50px rgba(255, 0, 0, 1), inset 0 0 30px rgba(139, 0, 0, 0.6);
+            color: #ff0000;
+        }
+        #settingsScreen, #instructionsScreen {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(135deg, #1a0000 0%, #2d0000 50%, #1a0000 100%);
+            z-index: 1999;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+        }
+        #settingsScreen.show, #instructionsScreen.show {
+            display: flex;
+        }
+        .screen-content {
+            max-width: 1000px;
+            padding: 60px;
+            background: rgba(0, 0, 0, 0.8);
+            border: 3px solid #8b0000;
+            border-radius: 20px;
+            box-shadow: 0 0 50px rgba(255, 0, 0, 0.6);
+            text-align: center;
+        }
+        .screen-content h1 {
+            color: #ff6b6b;
+            font-size: 60px;
+            margin-bottom: 40px;
+            text-shadow: 0 0 20px rgba(255, 0, 0, 0.8);
+        }
+        .screen-content p {
+            color: #cccccc;
+            font-size: 20px;
+            line-height: 1.8;
+            margin-bottom: 50px;
+        }
+        .back-btn {
+            padding: 15px 40px;
+            font-size: 18px;
+            background: linear-gradient(135deg, #660000, #330000);
+            color: #ff6b6b;
+            border: 3px solid #8b0000;
+            border-radius: 10px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: 0.3s;
+            box-shadow: 0 0 20px rgba(255, 0, 0, 0.5);
+        }
+        .back-btn:hover {
+            background: linear-gradient(135deg, #990000, #660000);
+            transform: scale(1.05);
+            box-shadow: 0 0 50px rgba(255, 0, 0, 1);
+        }
+    </style>
+</head>
+<body>
+    <div id="titleScreen">
+        <h1>THE MINE</h1>
+        <div class="menu-buttons">
+            <button class="menu-btn" onclick="startGame()">PLAY</button>
+            <button class="menu-btn" onclick="showSettings()">SETTINGS</button>
+            <button class="menu-btn" onclick="showInstructions()">INSTRUCTIONS</button>
+        </div>
+    </div>
+
+    <div id="settingsScreen">
+        <div class="screen-content">
+            <h1>SETTINGS</h1>
+            <p>In a mixed world, you are pulled underground by a mysterious force.<br>You forgot everything, how to move, even how to look around.</p>
+            <button class="back-btn" onclick="backToTitle()">← BACK</button>
+        </div>
+    </div>
+
+    <div id="instructionsScreen">
+        <div class="screen-content">
+            <h1>INSTRUCTIONS</h1>
+            <p>Guess...</p>
+            <button class="back-btn" onclick="backToTitle()">← BACK</button>
+        </div>
+    </div>
+    <div id="ui">
+        <div>⚡ Flashlight: <span id="flashlightStatus">OFF</span> | Power: <span id="flashlightPower">100</span>%</div>
+        <div style="margin-top: 10px; font-size: 14px; color: #ff6b6b;">⚠ Find the escape hole!</div>
+    </div>
+    
+    <div class="crosshair"></div>
+    
+    <div id="instructions">
+        Mouse to look around | WASD to move | SPACE to jump<br>
+        Use flashlight to scare monsters | Find the hole to escape
+    </div>
+
+    <div id="endScreen">
+        <h1>YOU SURVIVED THE MINE</h1>
+        <p>You escaped the underground horrors...</p>
+        <button onclick="location.reload()">PLAY AGAIN</button>
+    </div>
+
+    <div id="deathScreen">
+        <h1>YOU DIED</h1>
+        <p>The monsters got you...</p>
+        <button onclick="location.reload()">TRY AGAIN</button>
+    </div>
+
+    <div id="jumpscare">👹</div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script>
+        // Menu functions
+        function startGame() {
+            document.getElementById('titleScreen').style.display = 'none';
+            document.getElementById('settingsScreen').classList.remove('show');
+            document.getElementById('instructionsScreen').classList.remove('show');
+            document.getElementById('ui').style.display = 'block';
+            document.querySelector('.crosshair').style.display = 'block';
+            document.getElementById('instructions').style.display = 'block';
+            document.body.requestPointerLock = document.body.requestPointerLock || document.body.mozRequestPointerLock;
+            if (document.body.requestPointerLock) {
+                document.body.requestPointerLock();
+            }
+            gameStarted = true;
+        }
+
+        function showSettings() {
+            document.getElementById('titleScreen').style.display = 'none';
+            document.getElementById('settingsScreen').classList.add('show');
+        }
+
+        function showInstructions() {
+            document.getElementById('titleScreen').style.display = 'none';
+            document.getElementById('instructionsScreen').classList.add('show');
+        }
+
+        function backToTitle() {
+            document.getElementById('settingsScreen').classList.remove('show');
+            document.getElementById('instructionsScreen').classList.remove('show');
+            document.getElementById('titleScreen').style.display = 'flex';
+        }
+
+        let gameStarted = false;
+
+        // Scene setup
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x0a0a0a);
+        scene.fog = new THREE.Fog(0x000000, 50, 200);
+
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        camera.position.set(0, 1.6, 30);
+
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.shadowMap.enabled = true;
+        renderer.shadowMap.type = THREE.PCFShadowShadowMap;
+        document.body.appendChild(renderer.domElement);
+
+        // Hide UI initially
+        document.getElementById('ui').style.display = 'none';
+        document.querySelector('.crosshair').style.display = 'none';
+        document.getElementById('instructions').style.display = 'none';
+
+        // Request fullscreen on game start
+        document.addEventListener('click', () => {
+            if (!document.fullscreenElement && gameStarted) {
+                document.documentElement.requestFullscreen().catch(() => {});
+            }
+        }, { once: true });
+
+        // Player movement
+        const player = {
+            velocity: new THREE.Vector3(),
+            speed: 0.20,
+            jumpForce: 1.0,
+            onGround: true
+        };
+
+        const keys = {};
+        window.addEventListener('keydown', (e) => keys[e.key.toLowerCase()] = true);
+        window.addEventListener('keyup', (e) => keys[e.key.toLowerCase()] = false);
+
+        // Mouse controls
+        let mouseX = 0, mouseY = 0;
+        let euler = new THREE.Euler(0, 0, 0, 'YXZ');
+        let PI_2 = Math.PI / 2;
+
+        document.addEventListener('mousemove', (event) => {
+            mouseX += event.movementX * 0.002;
+            mouseY += event.movementY * 0.002;
+            mouseY = Math.max(-PI_2, Math.min(PI_2, mouseY));
+        });
+
+        document.addEventListener('click', () => {
+            document.body.requestPointerLock = document.body.requestPointerLock || document.body.mozRequestPointerLock;
+            document.body.requestPointerLock();
+        });
+
+        // Create mine environment
+        function createMine() {
+            // Floor
+            let floorGeometry = new THREE.PlaneGeometry(200, 200);
+            let floorMaterial = new THREE.MeshStandardMaterial({ color: 0x3d2817 });
+            let floor = new THREE.Mesh(floorGeometry, floorMaterial);
+            floor.rotation.x = -Math.PI / 2;
+            floor.receiveShadow = true;
+            scene.add(floor);
+
+            // Walls - create a long corridor
+            function createWall(x, z, width, depth, height) {
+                let wallGeometry = new THREE.BoxGeometry(width, height, depth);
+                let wallMaterial = new THREE.MeshStandardMaterial({ color: 0x2a2a2a });
+                let wall = new THREE.Mesh(wallGeometry, wallMaterial);
+                wall.position.set(x, height / 2, z);
+                wall.receiveShadow = true;
+                wall.castShadow = true;
+                scene.add(wall);
+            }
+
+            // Corridor walls
+            createWall(-15, 0, 5, 500, 10);
+            createWall(15, 0, 5, 500, 10);
+
+            // Ceiling
+            let ceilingGeometry = new THREE.PlaneGeometry(30, 500);
+            let ceilingMaterial = new THREE.MeshStandardMaterial({ color: 0x1a1a1a });
+            let ceiling = new THREE.Mesh(ceilingGeometry, ceilingMaterial);
+            ceiling.rotation.x = Math.PI / 2;
+            ceiling.position.y = 10;
+            ceiling.receiveShadow = true;
+            scene.add(ceiling);
+
+            // Random rocks and debris
+            for (let i = 0; i < 30; i++) {
+                let rockGeometry = new THREE.DodecahedronGeometry(Math.random() * 2 + 0.5, 0);
+                let rockMaterial = new THREE.MeshStandardMaterial({ color: 0x4a4a4a });
+                let rock = new THREE.Mesh(rockGeometry, rockMaterial);
+                rock.position.set(
+                    (Math.random() - 0.5) * 25,
+                    Math.random() * 3,
+                    Math.random() * 300 - 150
+                );
+                rock.castShadow = true;
+                rock.receiveShadow = true;
+                scene.add(rock);
+            }
+        }
+
+        createMine();
+
+        // Lighting - ambient is very dark
+        const ambientLight = new THREE.AmbientLight(0x0a0a0a, 0.1);
+        scene.add(ambientLight);
+
+        // Flashlight
+        let flashlightPower = 100;
+        let flashlightOn = false;
+        const flashlight = new THREE.SpotLight(0xffdd00, 2, 250, Math.PI / 4, 0.5, 1.5);
+        flashlight.position.copy(camera.position);
+        flashlight.castShadow = true;
+        scene.add(flashlight);
+
+        // Toggle flashlight with left click (only if has power)
+        document.addEventListener('click', (e) => {
+            if (e.button === 0 && flashlightPower > 0) {
+                flashlightOn = !flashlightOn;
+            }
+        });
+
+        // Scary monsters
+        const monsters = [];
+
+        class Monster {
+            constructor(x, z) {
+                this.group = new THREE.Group();
+                this.x = x;
+                this.z = z;
+                this.scared = false;
+                this.scaredTimer = 0;
+                this.speed = 0.15;
+                this.flashlightWasOn = false;
+                this.flashlightOffTimer = 0;
+
+                // Body
+                let bodyGeometry = new THREE.BoxGeometry(1.5, 2, 1);
+                let bodyMaterial = new THREE.MeshStandardMaterial({ color: 0x8b0000 });
+                let body = new THREE.Mesh(bodyGeometry, bodyMaterial);
+                body.castShadow = true;
+                body.receiveShadow = true;
+                this.group.add(body);
+
+                // Head
+                let headGeometry = new THREE.SphereGeometry(0.8, 8, 8);
+                let headMaterial = new THREE.MeshStandardMaterial({ color: 0x660000 });
+                let head = new THREE.Mesh(headGeometry, headMaterial);
+                head.position.y = 1.5;
+                head.castShadow = true;
+                this.group.add(head);
+
+                // Eyes - creepy
+                let eyeGeometry = new THREE.SphereGeometry(0.3, 8, 8);
+                let eyeMaterial = new THREE.MeshStandardMaterial({ color: 0xff0000, emissive: 0xff0000 });
+                let leftEye = new THREE.Mesh(eyeGeometry, eyeMaterial);
+                leftEye.position.set(-0.4, 2.2, 0.7);
+                leftEye.scale.set(0.5, 0.5, 0.1);
+                this.group.add(leftEye);
+
+                let rightEye = new THREE.Mesh(eyeGeometry, eyeMaterial);
+                rightEye.position.set(0.4, 2.2, 0.7);
+                rightEye.scale.set(0.5, 0.5, 0.1);
+                this.group.add(rightEye);
+
+                // Teeth
+                for (let i = 0; i < 4; i++) {
+                    let toothGeometry = new THREE.BoxGeometry(0.2, 0.3, 0.1);
+                    let toothMaterial = new THREE.MeshStandardMaterial({ color: 0xffffff });
+                    let tooth = new THREE.Mesh(toothGeometry, toothMaterial);
+                    tooth.position.set(-0.4 + i * 0.3, 1.3, 0.8);
+                    this.group.add(tooth);
+                }
+
+                // Spikes
+                for (let i = 0; i < 8; i++) {
+                    let spikeGeometry = new THREE.ConeGeometry(0.2, 0.8, 4);
+                    let spikeMaterial = new THREE.MeshStandardMaterial({ color: 0x440000 });
+                    let spike = new THREE.Mesh(spikeGeometry, spikeMaterial);
+                    spike.position.set(
+                        Math.cos(i * Math.PI / 4) * 1,
+                        1,
+                        Math.sin(i * Math.PI / 4) * 1
+                    );
+                    spike.rotation.z = Math.random() * Math.PI;
+                    spike.castShadow = true;
+                    this.group.add(spike);
+                }
+
+                // Tentacles
+                for (let i = 0; i < 3; i++) {
+                    let tentacleGeometry = new THREE.CylinderGeometry(0.1, 0.05, 2, 8);
+                    let tentacleMaterial = new THREE.MeshStandardMaterial({ color: 0x990000 });
+                    let tentacle = new THREE.Mesh(tentacleGeometry, tentacleMaterial);
+                    tentacle.position.set(-1.2 + i * 1.2, 0.5, -0.5);
+                    tentacle.rotation.z = Math.random() * 0.3;
+                    tentacle.castShadow = true;
+                    this.group.add(tentacle);
+                }
+
+                this.group.position.set(x, 1, z);
+                scene.add(this.group);
+            }
+
+            update(playerPos, flashlightDir, isFlashlightOn) {
+                let distToPlayer = this.group.position.distanceTo(playerPos);
+                let distToFlashlight = flashlightDir.distanceTo(this.group.position);
+
+                // Track flashlight state change
+                if (isFlashlightOn && !this.flashlightWasOn) {
+                    this.flashlightOffTimer = 0;
+                } else if (!isFlashlightOn && this.flashlightWasOn) {
+                    this.flashlightOffTimer = 0;
+                }
+                this.flashlightWasOn = isFlashlightOn;
+
+                // If flashlight just turned off, start timer
+                if (!isFlashlightOn) {
+                    this.flashlightOffTimer++;
+                }
+
+                // Check if flashlight is hitting this monster (only when on)
+                let toMonster = new THREE.Vector3().subVectors(this.group.position, flashlightDir);
+                let angleToMonster = toMonster.angleTo(new THREE.Vector3(0, 0, -1));
+
+                if (isFlashlightOn && distToFlashlight < 80 && angleToMonster < Math.PI / 6) {
+                    this.scared = true;
+                    this.scaredTimer = 180;
+                }
+
+                if (this.scared) {
+                    this.scaredTimer--;
+                    if (this.scaredTimer > 0) {
+                        // Flee from player
+                        let away = new THREE.Vector3().subVectors(this.group.position, playerPos);
+                        away.normalize();
+                        this.group.position.x += away.x * this.speed * 4;
+                        this.group.position.z += away.z * this.speed * 4;
+                        // Don't spin - just flee
+                    } else {
+                        this.scared = false;
+                    }
+                } else if (distToPlayer > 1.5) {
+                    // Only approach if flashlight has been off for 2 seconds (120 frames)
+                    if (this.flashlightOffTimer > 120) {
+                        // Approach player slowly if not scared
+                        let toward = new THREE.Vector3().subVectors(playerPos, this.group.position);
+                        toward.normalize();
+                        this.group.position.x += toward.x * this.speed * 0.3;
+                        this.group.position.z += toward.z * this.speed * 0.3;
+                    }
+                    // Don't spin - just move
+                }
+
+                // Jitter for creepy effect
+                this.group.position.y = 1 + Math.sin(Date.now() * 0.005) * 0.1;
+
+                // Keep in bounds
+                this.group.position.x = Math.max(-12, Math.min(12, this.group.position.x));
+                this.group.position.z = Math.max(-200, Math.min(50, this.group.position.z));
+            }
+
+            checkCollision(playerPos) {
+                let dist = this.group.position.distanceTo(playerPos);
+                return dist < 1.5;
+            }
+        }
+
+        // Spawn monsters
+        for (let i = 0; i < 6; i++) {
+            monsters.push(new Monster(
+                (Math.random() - 0.5) * 20,
+                -50 - Math.random() * 150
+            ));
+        }
+
+        // Escape hole
+        const escapeHole = {
+            mesh: null,
+            detected: false,
+            create: function() {
+                let geom = new THREE.CylinderGeometry(2, 2, 5, 32);
+                let mat = new THREE.MeshStandardMaterial({ color: 0x000000 });
+                this.mesh = new THREE.Mesh(geom, mat);
+                this.mesh.position.set(0, -1, -350);
+                scene.add(this.mesh);
+            },
+            checkCollision: function(playerPos) {
+                let dist = new THREE.Vector3(playerPos.x, 0, playerPos.z).distanceTo(
+                    new THREE.Vector3(this.mesh.position.x, 0, this.mesh.position.z)
+                );
+                if (dist < 2.5 && playerPos.y < 5) {
+                    return true;
+                }
+                return false;
+            }
+        };
+        escapeHole.create();
+
+        // Game state
+        let gameWon = false;
+        let gameLost = false;
+
+        // Animation loop
+        function animate() {
+            requestAnimationFrame(animate);
+
+            if (gameStarted && !gameWon && !gameLost) {
+                // Update camera head position
+                euler.setFromQuaternion(camera.quaternion);
+                euler.order = 'YXZ';
+                euler.setFromVector3(new THREE.Vector3(mouseY, mouseX, 0));
+                camera.quaternion.setFromEuler(euler);
+
+                // Player movement
+                let movement = new THREE.Vector3();
+                if (keys['w']) movement.z += 1;
+                if (keys['s']) movement.z -= 1;
+                if (keys['a']) movement.x -= 1;
+                if (keys['d']) movement.x += 1;
+
+                if (movement.length() > 0) {
+                    movement.normalize();
+                    let forward = new THREE.Vector3(0, 0, -1).applyQuaternion(camera.quaternion);
+                    let right = new THREE.Vector3(1, 0, 0).applyQuaternion(camera.quaternion);
+                    
+                    let moveDir = new THREE.Vector3();
+                    moveDir.addScaledVector(right, movement.x);
+                    moveDir.addScaledVector(forward, movement.z);
+                    moveDir.y = 0;
+                    moveDir.normalize();
+                    
+                    camera.position.x += moveDir.x * player.speed;
+                    camera.position.z += moveDir.z * player.speed;
+                }
+
+                // Boundary
+                camera.position.x = Math.max(-13, Math.min(13, camera.position.x));
+                camera.position.z = Math.max(-200, Math.min(40, camera.position.z));
+
+                // Flashlight
+                flashlight.position.copy(camera.position);
+                flashlight.target.position.copy(camera.position).addScaledVector(new THREE.Vector3(0, 0, -1).applyQuaternion(camera.quaternion), 50);
+                flashlight.updateMatrixWorld();
+                flashlight.target.updateMatrixWorld();
+
+                // Flashlight decay and control
+                if (flashlightPower > 0) {
+                    if (flashlightOn) {
+                        flashlightPower = Math.max(0, flashlightPower - (1/600));
+                        flashlight.intensity = (flashlightPower / 100) * 2;
+                        document.getElementById('flashlightStatus').textContent = 'ON';
+                        document.getElementById('flashlightStatus').style.color = '#ffdd00';
+                        
+                        // Auto-off when power depleted
+                        if (flashlightPower <= 0) {
+                            flashlightOn = false;
+                            flashlight.intensity = 0;
+                        }
+                    } else {
+                        flashlight.intensity = 0;
+                        document.getElementById('flashlightStatus').textContent = 'OFF';
+                        document.getElementById('flashlightStatus').style.color = '#aaaaaa';
+                    }
+                } else {
+                    flashlight.intensity = 0;
+                    flashlightOn = false;
+                    document.getElementById('flashlightStatus').textContent = 'DEAD';
+                    document.getElementById('flashlightStatus').style.color = '#ff0000';
+                }
+                document.getElementById('flashlightPower').textContent = Math.floor(flashlightPower);
+
+                // Update monsters
+                monsters.forEach(m => m.update(camera.position, flashlight.position, flashlightOn));
+
+                // Check monster collision (death)
+                for (let m of monsters) {
+                    if (m.checkCollision(camera.position)) {
+                        gameLost = true;
+                        // Show jumpscare
+                        document.getElementById('jumpscare').classList.add('active');
+                        setTimeout(() => {
+                            document.getElementById('deathScreen').classList.add('show');
+                        }, 500);
+                        break;
+                    }
+                }
+
+                // Check escape
+                if (escapeHole.checkCollision(camera.position)) {
+                    gameWon = true;
+                    document.getElementById('endScreen').classList.add('show');
+                }
+            }
+
+            renderer.render(scene, camera);
+        }
+
+        animate();
+
+        // Handle window resize
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+    </script>
+</body>
+</html>
